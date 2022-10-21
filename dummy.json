@@ -1,0 +1,28 @@
+{
+    "channel_index": [
+        0,
+        1
+    ],
+    "duration": 1.25,
+    "start": 219.86,
+    "is_final": true,
+    "speech_final": true,
+    "channel": {
+        "alternatives": [
+            {
+                "transcript": "",
+                "confidence": 0.0,
+                "words": []
+            }
+        ]
+    },
+    "metadata": {
+        "request_id": "8816ade8-cbc7-4d90-98b9-f43816fd9779",
+        "model_info": {
+            "name": "general",
+            "version": "2022-01-18.0",
+            "tier": "base"
+        },
+        "model_uuid": "4899aa60-f723-4517-9815-2042acc12a82"
+    }
+}

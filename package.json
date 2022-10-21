@@ -1,0 +1,25 @@
+{
+  "name": "video-chat",
+  "version": "1.0.1",
+  "description": "Video Chat application.",
+  "main": "server.js",
+  "author": "Deepgram",
+  "scripts": {
+    "start": "node server.js",
+    "debug": "node --nolazy --inspect --debug-brk=5858 ./server.js"
+  },
+  "dependencies": {
+    "@deepgram/sdk": "^1.0.1",
+    "cors": "^2.8.5",
+    "dotenv": "^8.6.0",
+    "express": "^4.17.1",
+    "socket.io": "^4.5.3",
+    "ws": "^1.1.0"
+  },
+  "license": "ISC",
+  "devDependencies": {
+    "@types/node": "^12.20.0",
+    "@types/webrtc": "0.0.21",
+    "eslint": "^7.23.0"
+  }
+}
