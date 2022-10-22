@@ -42,6 +42,7 @@ io.sockets.on("connection", handle_connection);
 // container of users
 let users = {};
 
+let tt_data = "";
 // const MAX_CLIENTS = 2;
 /**
  * This function will be called every time a client
@@ -62,6 +63,7 @@ function handle_connection(socket) {
         socket.on("disconnect", () => {
             // when user disconnects, we send the prepared transcript
             sendTranscript(users[socket.id]);
+            console.log('Final Data: ' + tt_data);
 
             socket.broadcast.to(room).emit("bye", socket.id);
         });
@@ -114,6 +116,7 @@ function setupRealtimeTranscription(socket, room) {
         const final_transcript = user_name + " : " + dummy + "\n";
         try {
             if (dummy.length > 0) {
+                tt_data = tt_data + final_transcript;
                 fs.appendFile('mytranscript.txt', final_transcript, (err) => {
                     if (err) throw err;
                 })
@@ -158,6 +161,7 @@ const listener = server.listen(process.env.PORT, () =>
 
 //setting up nodemailer
 function sendTranscript(user_data) {
+    console.log(__dirname)
     var transporter = nodemailer.createTransport({
         service: "hotmail",
         auth: {
@@ -174,7 +178,7 @@ function sendTranscript(user_data) {
         attachments: [
             {
                 filename: 'transcript.txt',
-                path: __dirname + '\\mytranscript.txt'
+                path: __dirname + '/' + 'mytranscript.txt'
             }
         ],
         text: `Hello ${user_data['user_name']}, here is your auto-generated minutes of the meeting attached below.`
