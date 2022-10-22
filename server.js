@@ -42,7 +42,6 @@ io.sockets.on("connection", handle_connection);
 // container of users
 let users = {};
 
-let tt_data = "";
 // const MAX_CLIENTS = 2;
 /**
  * This function will be called every time a client
@@ -63,9 +62,11 @@ function handle_connection(socket) {
         socket.on("disconnect", () => {
             // when user disconnects, we send the prepared transcript
             sendTranscript(users[socket.id]);
-            console.log('Final Data: ' + tt_data);
 
             socket.broadcast.to(room).emit("bye", socket.id);
+            // console.log('before: ' + Object.keys(users).length)
+            delete users[socket.id];
+            // console.log('after: ' + Object.keys(users).length)
         });
     });
 }
@@ -116,7 +117,6 @@ function setupRealtimeTranscription(socket, room) {
         const final_transcript = user_name + " : " + dummy + "\n";
         try {
             if (dummy.length > 0) {
-                tt_data = tt_data + final_transcript;
                 fs.appendFile('mytranscript.txt', final_transcript, (err) => {
                     if (err) throw err;
                 })
@@ -161,7 +161,7 @@ const listener = server.listen(process.env.PORT, () =>
 
 //setting up nodemailer
 function sendTranscript(user_data) {
-    console.log(__dirname)
+    // console.log(__dirname)
     var transporter = nodemailer.createTransport({
         service: "hotmail",
         auth: {
@@ -191,6 +191,24 @@ function sendTranscript(user_data) {
         }
         else {
             console.log(`SUCCESSFULL, email sent to ${user_data['user_name']} at ${user_data['user_email']}`);
+
+            // after-work: remove file contents
+            if (Object.keys(users).length == 0) {
+                // all users left room, remove the content from file
+                try {
+
+                    fs.unlink('mytranscript.txt', (err) => {
+                        if (err) throw err;
+                        console.log('mytranscript.txt was deleted');
+                    });
+
+                    // fs.writeFileSync('mytranscript.txt', "", (err) => {
+                    //     if (err) throw err;
+                    // })
+                } catch (e) {
+                    console.log('Error deleting file');
+                }
+            }
         }
     });
 }
