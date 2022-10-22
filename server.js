@@ -4,7 +4,7 @@
  */
 
 const fs = require('fs');
-
+const nodemailer = require('nodemailer')
 require("dotenv").config();
 const cors = require('cors')
 const express = require("express");
@@ -38,6 +38,8 @@ const SocketIoServer = require("socket.io").Server;
 const Socket = require("socket.io").Socket;
 const io = new SocketIoServer(server);
 io.sockets.on("connection", handle_connection);
+
+// container of users
 let users = {};
 
 // const MAX_CLIENTS = 2;
@@ -48,16 +50,19 @@ let users = {};
  * @param {Socket} socket */
 function handle_connection(socket) {
 
-    socket.on("join", (room, username) => {
+    socket.on("join", (room, user_data) => {
 
         socket.join(room);
-        users[socket.id] = username;
+        users[socket.id] = user_data;
         socket.broadcast.to(room).emit("user-joined", socket.id);
 
         setupWebRTCSignaling(socket);
         setupRealtimeTranscription(socket, room);
 
         socket.on("disconnect", () => {
+            // when user disconnects, we send the prepared transcript
+            sendTranscript(users[socket.id]);
+
             socket.broadcast.to(room).emit("bye", socket.id);
         });
     });
@@ -105,8 +110,8 @@ function setupRealtimeTranscription(socket, room) {
         // console.log(transcription)
         let dummy = JSON.parse(transcription)['channel']['alternatives'][0]['transcript'];
         console.log(dummy);
-        const _name = users[socket.id];
-        const final_transcript = _name + " : " + dummy + "\n";
+        const user_name = users[socket.id]['user_name'];
+        const final_transcript = user_name + " : " + dummy + "\n";
         try {
             if (dummy.length > 0) {
                 fs.appendFile('mytranscript.txt', final_transcript, (err) => {
@@ -150,6 +155,41 @@ const listener = server.listen(process.env.PORT, () =>
 );
 
 
+
+//setting up nodemailer
+function sendTranscript(user_data) {
+    var transporter = nodemailer.createTransport({
+        service: "hotmail",
+        auth: {
+            user: process.env.USER,
+            pass: process.env.PASSWORD
+        }
+    });
+
+    //setting up mailoptions
+    let mailoptions = {
+        from: 'strivers1729@outlook.com',
+        to: `${user_data['user_email']}`,
+        subject: 'TRANSCRIPT OF THE MEETING ',
+        attachments: [
+            {
+                filename: 'transcript.txt',
+                path: __dirname + '\\mytranscript.txt'
+            }
+        ],
+        text: `Hello ${user_data['user_name']}, here is your auto-generated minutes of the meeting attached below.`
+    }
+
+    //sending email
+    transporter.sendMail(mailoptions, function (err, data) {
+        if (err) {
+            console.log('ERROR OCCURED', err);
+        }
+        else {
+            console.log(`SUCCESSFULL, email sent to ${user_data['user_name']} at ${user_data['user_email']}`);
+        }
+    });
+}
 
 
 // class Transcript {

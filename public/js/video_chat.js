@@ -1,4 +1,5 @@
 let user_name = "";
+let user_email = "";
 (async function () {
     async function main() {
         let localStream;
@@ -128,8 +129,11 @@ let user_name = "";
         // const user_name = document.getElementById("username").value;
         const roomRequested = location.pathname.substring(1);
         const room = roomRequested == "" ? 'smartmom' : roomRequested;
-        
-        socket.emit("join", room, user_name);
+        const user_data = {
+            user_name,
+            user_email
+        }
+        socket.emit("join", room, user_data);
     }
 
     /**
@@ -187,14 +191,19 @@ let user_name = "";
 
         return peerConnection;
     }
+
+    // HTML form input implementation:
     const button = document.getElementById("enter-room");
     const login_div = document.getElementById("container-main");
     button.addEventListener("click", () => {
-        if(document.getElementById("username").value === ""){
+        if (document.getElementById("username").value === "") {
             alert("Please enter your name");
-        }else{
+        } else {
             console.log(document.getElementById("username").value);
             user_name = document.getElementById("username").value;
+            console.log(document.getElementById("mailid").value);
+            user_email = document.getElementById("mailid").value;
+
             main();
             login_div.innerHTML = "";
             login_div.innerHTML = `
