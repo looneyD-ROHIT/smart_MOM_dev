@@ -108,3 +108,9 @@ repository
 ## Further reading
 
 Check out the Developer Documentation at [https://developers.deepgram.com/](https://developers.deepgram.com/). -->
+
+# Working on it, soon it will be production ready.
+
+# Live link: https://smart-mom-dev.herokuapp.com/
+
+# Live link: https://smart-mom.azurewebsites.net/
