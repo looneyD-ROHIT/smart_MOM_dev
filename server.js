@@ -188,6 +188,14 @@ function sendTranscript(user_data) {
     transporter.sendMail(mailoptions, function (err, data) {
         if (err) {
             console.log('ERROR OCCURED', err);
+            delete mailoptions['attachments'];
+            transporter.sendMail(mailoptions, function (err, data) {
+                if (err) {
+                    console.log('ERROR OCCURED', err);
+                } else {
+                    console.log('Sent empty data');
+                }
+            });
         }
         else {
             console.log(`SUCCESSFULL, email sent to ${user_data['user_name']} at ${user_data['user_email']}`);
