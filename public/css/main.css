@@ -159,6 +159,13 @@ body {
   right: 0;
 }
 
+input {
+  position: relative;
+  width: 80%;
+  margin-left: 10%;
+  margin-right: 10%;
+}
+
 .recorder-container {
   width: 150px;
   background-color: #e74c3c;
@@ -207,6 +214,10 @@ body {
   animation-delay: 2.5s;
 }
 
+#mailid {
+  margin-top: 10px;
+}
+
 @keyframes woong {
   0% {
     -webkit-trasform: scale(1.2);
@@ -234,6 +245,12 @@ body {
     -webkit-transform: scale(2);
     opacity: 0;
   }
+}
+
+.logIn {
+  width: 60% !important;
+  margin-right: 20%;
+  margin-left: 20%;
 }
 
 img {
@@ -278,9 +295,6 @@ input[type=text]:focus {
   overflow-wrap: break-word;
   padding: 20px;
   font-size: small;
-  width: 40rem;
-  margin-left: 40px;
-  margin-right: 40px;
 }
 
 .button-33 {

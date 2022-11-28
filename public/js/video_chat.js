@@ -210,9 +210,13 @@ let user_email = "";
             <div class="recorder-container">
                 <div class="outer"></div>
                 <div class="outer-2"></div>
-                <div class="icon-microphone"><img src="mic.png" alt="R" /></div>
+                <div class="icon-microphone"><img id="micimage" src="mic.png" alt="R" /></div>
             </div>
             `;
+            document.getElementById('micimage').addEventListener('click', (e) => {
+                e.preventDefault();
+                location.reload()
+            })
         }
     });
     // main();

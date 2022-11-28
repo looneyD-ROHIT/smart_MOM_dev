@@ -40,6 +40,9 @@ const io = new SocketIoServer(server);
 io.sockets.on("connection", handle_connection);
 
 // container of users
+// user_name
+// user_email
+// joining_timestamp
 let users = {};
 
 // const MAX_CLIENTS = 2;
@@ -49,25 +52,37 @@ let users = {};
  * what to do in reaction to messages sent by clients.
  * @param {Socket} socket */
 function handle_connection(socket) {
-
     socket.on("join", (room, user_data) => {
+        try {
+            socket.join(room);
+            // appending the joining time to the user_data
+            user_data['joiningtime'] = (new Date()).toLocaleTimeString(undefined, { timeZone: 'Asia/Kolkata' });
 
-        socket.join(room);
-        users[socket.id] = user_data;
-        socket.broadcast.to(room).emit("user-joined", socket.id);
+            users[socket.id] = user_data;
+            socket.broadcast.to(room).emit("user-joined", socket.id);
 
-        setupWebRTCSignaling(socket);
-        setupRealtimeTranscription(socket, room);
+            const joinInfo = "[" + user_data['joiningtime'] + "] " + user_data.user_name + " joined.\n"
 
-        socket.on("disconnect", () => {
-            // when user disconnects, we send the prepared transcript
-            sendTranscript(users[socket.id]);
+            // write to the file that the user joined the chat
+            fs.appendFile('mytranscript.txt', joinInfo, (err) => {
+                if (err) throw err;
+            })
 
-            socket.broadcast.to(room).emit("bye", socket.id);
-            // console.log('before: ' + Object.keys(users).length)
-            delete users[socket.id];
-            // console.log('after: ' + Object.keys(users).length)
-        });
+            setupWebRTCSignaling(socket);
+            setupRealtimeTranscription(socket, room);
+
+            socket.on("disconnect", () => {
+                // when user disconnects, we send the prepared transcript
+                sendTranscript(users[socket.id], socket.id);
+
+                socket.broadcast.to(room).emit("bye", socket.id);
+                // console.log('before: ' + Object.keys(users).length)
+                delete users[socket.id];
+                // console.log('after: ' + Object.keys(users).length)
+            });
+        } catch (e) {
+            console.log('Inside handle_connection(error): ' + e);
+        }
     });
 }
 
@@ -114,7 +129,8 @@ function setupRealtimeTranscription(socket, room) {
         let dummy = JSON.parse(transcription)['channel']['alternatives'][0]['transcript'];
         console.log(dummy);
         const user_name = users[socket.id]['user_name'];
-        const final_transcript = user_name + " : " + dummy + "\n";
+        const tDate = (new Date()).toLocaleTimeString(undefined, { timeZone: 'Asia/Kolkata' });
+        const final_transcript = `[${tDate}] ${user_name}: ${dummy}\n`;
         try {
             if (dummy.length > 0) {
                 fs.appendFile('mytranscript.txt', final_transcript, (err) => {
@@ -160,17 +176,49 @@ const listener = server.listen(process.env.PORT, () =>
 
 
 //setting up nodemailer
-function sendTranscript(user_data) {
+function sendTranscript(user_data, socketid) {
+    // console.log(socketid);
     // console.log(__dirname)
     var transporter = nodemailer.createTransport({
         service: "hotmail",
         auth: {
-            user: process.env.USER,
+            user: process.env.EMAILID,
             pass: process.env.PASSWORD
         }
     });
 
+    // extracting the data to be sent from joining time to exit time
+    const tempFileName = `${socketid}.txt`
+    try {
+        // entire file contents as a string
+        const allFileContents = fs.readFileSync('mytranscript.txt', 'utf-8');
+        // entire file contents line by line with one line in one array
+        const lineByLineData = allFileContents.split(/\r?\n/);
+        // string to be searched
+        const toBeChecked = "[" + user_data.joiningtime + "] " + user_data.user_name + " joined."
+        // first index of matched value
+        // const firstIndex = lineByLineData.indexOf(toBeChecked);
+        let firstIndex = -1;
+        for (let i = 0; i < lineByLineData.length; i++) {
+            if (toBeChecked == lineByLineData[i]) {
+                firstIndex = i;
+                break;
+            }
+        }
+        // final trimmed data
+        const newDataToBeSent = lineByLineData.slice(firstIndex).join('\n');
+
+        console.log('1')
+        fs.writeFileSync(`${tempFileName}`, newDataToBeSent, (err) => {
+            if (err) throw err;
+        })
+        console.log('2')
+    } catch (e) {
+        console.log('sendTranscript(error)/fileCreation(error): ' + e);
+    }
+
     //setting up mailoptions
+    console.log('3')
     let mailoptions = {
         from: 'strivers1729@outlook.com',
         to: `${user_data['user_email']}`,
@@ -178,11 +226,12 @@ function sendTranscript(user_data) {
         attachments: [
             {
                 filename: 'transcript.txt',
-                path: __dirname + '/' + 'mytranscript.txt'
+                path: __dirname + `/${tempFileName}`
             }
         ],
         text: `Hello ${user_data['user_name']}, here is your auto-generated minutes of the meeting attached below.`
     }
+    console.log('4')
 
     //sending email
     transporter.sendMail(mailoptions, function (err, data) {
@@ -201,20 +250,30 @@ function sendTranscript(user_data) {
             console.log(`SUCCESSFULL, email sent to ${user_data['user_name']} at ${user_data['user_email']}`);
 
             // after-work: remove file contents
+            // now delete the file of that respective user who left the chat
+            try {
+
+                console.log('5')
+                fs.unlink(`${tempFileName}`, (err) => {
+                    if (err) throw err;
+                    console.log(`${tempFileName} was deleted`);
+                });
+                console.log('6')
+            } catch (e) {
+                console.log(`Error deleting file ${tempFileName}`);
+            }
+
+
             if (Object.keys(users).length == 0) {
-                // all users left room, remove the content from file
+                // all users left room, remove the content from global file
                 try {
 
                     fs.unlink('mytranscript.txt', (err) => {
                         if (err) throw err;
                         console.log('mytranscript.txt was deleted');
                     });
-
-                    // fs.writeFileSync('mytranscript.txt', "", (err) => {
-                    //     if (err) throw err;
-                    // })
                 } catch (e) {
-                    console.log('Error deleting file');
+                    console.log('Error deleting file mytranscript.txt');
                 }
             }
         }
