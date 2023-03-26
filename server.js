@@ -1,16 +1,35 @@
-/* The `dotenv` package allows us to load environment
- * variables from the `.env` file. Then, we can access them
- * with `process.env.ENV_VAR_NAME`.
- */
+// const XLSX = require("xlsx");
+import XLSX from 'xlsx';
 
-const fs = require('fs');
-const nodemailer = require('nodemailer')
-require("dotenv").config();
-const cors = require('cors')
-const express = require("express");
-const http = require("http");
-const WebSocket = require("ws");
-const { Deepgram } = require("@deepgram/sdk");
+// const fs = require('fs');
+import fs from 'fs';
+
+// const nodemailer = require('nodemailer')
+import nodemailer from 'nodemailer';
+
+// require("dotenv").config();
+import * as dotenv from 'dotenv';
+dotenv.config();
+
+// const cors = require('cors')
+import cors from 'cors';
+
+// const express = require("express");
+import express from 'express';
+
+// const http = require("http");
+import http from 'http'
+
+// const WebSocket = require("ws");
+import WebSocket from 'ws';
+
+// const { Deepgram } = require("@deepgram/sdk");
+import { Deepgram } from '@deepgram/sdk';
+
+import path from 'path';
+
+import { URL } from 'url';
+
 
 const DG_KEY = process.env.DG_KEY;
 
@@ -29,14 +48,23 @@ let server = http.createServer(app);
  *   any route.
  */
 app.use(cors())
-app.use(express.static(__dirname + "/public"));
+app.use(express.static("./public"));
 app.get("*", function (req, res) {
-    res.sendFile(`${__dirname}/public/index.html`);
+    const t = new URL('.', import.meta.url).pathname
+    // console.log('t='+t)
+    // console.log(t + `/public/index.html`)
+    res.sendFile(t + `/public/index.html`);
 });
 
-const SocketIoServer = require("socket.io").Server;
-const Socket = require("socket.io").Socket;
+import * as socket from 'socket.io'
+// const SocketIoServer = require("socket.io").Server;
+const SocketIoServer = socket.Server;
+
+// const Socket = require("socket.io").Socket;
+const Socket = socket.Socket;
+
 const io = new SocketIoServer(server);
+
 io.sockets.on("connection", handle_connection);
 
 // container of users
@@ -44,6 +72,9 @@ io.sockets.on("connection", handle_connection);
 // user_email
 // joining_timestamp
 let users = {};
+
+let globalJSON = {};
+let globalARR = [];
 
 // const MAX_CLIENTS = 2;
 /**
@@ -64,7 +95,7 @@ function handle_connection(socket) {
             const joinInfo = "[" + user_data['joiningtime'] + "] " + user_data.user_name + " joined.\n"
 
             // write to the file that the user joined the chat
-            fs.appendFile('mytranscript.txt', joinInfo, (err) => {
+            fs.appendFile(`${room}_`+'mytranscript.txt', joinInfo, (err) => {
                 if (err) throw err;
             })
 
@@ -73,7 +104,7 @@ function handle_connection(socket) {
 
             socket.on("disconnect", () => {
                 // when user disconnects, we send the prepared transcript
-                sendTranscript(users[socket.id], socket.id);
+                sendTranscript(users[socket.id], socket.id, room);
 
                 socket.broadcast.to(room).emit("bye", socket.id);
                 // console.log('before: ' + Object.keys(users).length)
@@ -102,12 +133,6 @@ function setupRealtimeTranscription(socket, room) {
         language: 'en-IN'
     });
 
-    /** We must receive the very first audio packet from the client because
-     * it contains some header data needed for audio decoding.
-     *
-     * Thus, we send a message to the client when the socket to Deepgram is ready,
-     * so the client knows it can start sending audio data.
-     */
     dgSocket.addListener("open", () => socket.emit("can-open-mic"));
 
     /**
@@ -120,20 +145,34 @@ function setupRealtimeTranscription(socket, room) {
     });
 
     /** On Deepgram's server message, we forward the response back to all the
-     * clients in the room.
+     * clients in the room.why
      */
     dgSocket.addListener("transcriptReceived", async (transcription) => {
-        // io.to(room).emit("transcript-result", socket.id, transcription);
-        // console.log('transcribed')
-        // console.log(transcription)
-        let dummy = JSON.parse(transcription)['channel']['alternatives'][0]['transcript'];
-        console.log(dummy);
-        const user_name = users[socket.id]['user_name'];
-        const tDate = (new Date()).toLocaleTimeString(undefined, { timeZone: 'Asia/Kolkata' });
-        const final_transcript = `[${tDate}] ${user_name}: ${dummy}\n`;
+        // let dummy = JSON.parse(transcription)?['channel']?['alternatives']?[0]?['transcript'];
         try {
+            let dummyJS = JSON.parse(transcription);
+            let dummy = "";
+            if(dummyJS && dummyJS.channel && dummyJS.channel.alternatives && dummyJS.channel.alternatives[0]){
+                dummy = dummyJS.channel.alternatives[0].transcript;
+            }
+
+            console.log(dummy);
+            const user_name = users[socket.id]['user_name'];
+            const tDate = (new Date()).toLocaleTimeString(undefined, { timeZone: 'Asia/Kolkata' });
+            const final_transcript = `[${tDate}] ${user_name}: ${dummy}\n`;
+
+            // forming the json type object to convert it into a spreadsheet
+            let dict = {};
+            dict[user_name] = dummy;
+            let old_json = globalJSON[tDate];
+            globalJSON[tDate] = Object.assign({}, old_json, dict);
+
+        // forming the arr of objects
+
+
+
             if (dummy.length > 0) {
-                fs.appendFile('mytranscript.txt', final_transcript, (err) => {
+                await fs.appendFile(`${room}_`+'mytranscript.txt', final_transcript, (err) => {
                     if (err) throw err;
                 })
             }
@@ -158,12 +197,6 @@ function setupRealtimeTranscription(socket, room) {
  * @param {Socket} socket
  */
 function setupWebRTCSignaling(socket) {
-    // socket.on("video-offer", (id, message) => {
-    //     socket.to(id).emit("video-offer", socket.id, message);
-    // });
-    // socket.on("video-answer", (id, message) => {
-    //     socket.to(id).emit("video-answer", socket.id, message);
-    // });
     socket.on("ice-candidate", (id, message) => {
         socket.to(id).emit("ice-candidate", socket.id, message);
     });
@@ -176,7 +209,7 @@ const listener = server.listen(process.env.PORT, () =>
 
 
 //setting up nodemailer
-function sendTranscript(user_data, socketid) {
+function sendTranscript(user_data, socketid, room) {
     // console.log(socketid);
     // console.log(__dirname)
     var transporter = nodemailer.createTransport({
@@ -191,7 +224,10 @@ function sendTranscript(user_data, socketid) {
     const tempFileName = `${socketid}.txt`
     try {
         // entire file contents as a string
-        const allFileContents = fs.readFileSync('mytranscript.txt', 'utf-8');
+        const allFileContents = fs.readFileSync(`${room}_`+'mytranscript.txt', 'utf-8');
+        console.log(room);
+        console.log(tempFileName)
+        console.log(allFileContents)
         // entire file contents line by line with one line in one array
         const lineByLineData = allFileContents.split(/\r?\n/);
         // string to be searched
@@ -207,18 +243,29 @@ function sendTranscript(user_data, socketid) {
         }
         // final trimmed data
         const newDataToBeSent = lineByLineData.slice(firstIndex).join('\n');
-
-        console.log('1')
+        // writing the final trimmed data
         fs.writeFileSync(`${tempFileName}`, newDataToBeSent, (err) => {
             if (err) throw err;
         })
-        console.log('2')
+
+
+        // sending the json to excel data
+        // let transARR = []
+        // for (let key in globalJSON) {
+        //     transARR.push(globalJSON[key]);
+        // }
+
+        // const workSheet = XLSX.utils.json_to_sheet(transARR);
+        // const workBook = XLSX.utils.book_new();
+        // XLSX.utils.book_append_sheet(workBook, workSheet, "transcript");
+        // XLSX.write(workBook, { bookType: "xlsx", type: "buffer" });
+        // XLSX.write(workBook, { bookType: "xlsx", type: "binary" });
+        // XLSX.writeFile(workBook, "transcript.xlsx");
     } catch (e) {
         console.log('sendTranscript(error)/fileCreation(error): ' + e);
     }
 
     //setting up mailoptions
-    console.log('3')
     let mailoptions = {
         from: 'strivers1729@outlook.com',
         to: `${user_data['user_email']}`,
@@ -226,8 +273,12 @@ function sendTranscript(user_data, socketid) {
         attachments: [
             {
                 filename: 'transcript.txt',
-                path: __dirname + `/${tempFileName}`
-            }
+                path: `./${tempFileName}`
+            },
+            // {
+            //     filename: 'transcript.xlsx',
+            //     path: `./transcript.xlsx`
+            // }
         ],
         text: `Hello ${user_data['user_name']}, here is your auto-generated minutes of the meeting attached below.`
     }
@@ -254,13 +305,17 @@ function sendTranscript(user_data, socketid) {
             try {
 
                 console.log('5')
-                fs.unlink(`${tempFileName}`, (err) => {
-                    if (err) throw err;
-                    console.log(`${tempFileName} was deleted`);
-                });
+                // fs.unlink(`${tempFileName}`, (err) => {
+                //     if (err) throw err;
+                //     console.log(`${tempFileName} was deleted`);
+                // });
+                // fs.unlink(`transcript.xlsx`, (err) => {
+                //     if (err) throw err;
+                //     console.log(`transcript.xlsx was deleted`);
+                // })
                 console.log('6')
             } catch (e) {
-                console.log(`Error deleting file ${tempFileName}`);
+                console.log(`Error deleting file ${tempFileName} or transcript.xlsx`);
             }
 
 
@@ -268,51 +323,14 @@ function sendTranscript(user_data, socketid) {
                 // all users left room, remove the content from global file
                 try {
 
-                    fs.unlink('mytranscript.txt', (err) => {
-                        if (err) throw err;
-                        console.log('mytranscript.txt was deleted');
-                    });
+                    // fs.unlink(`${room}_`+'mytranscript.txt', (err) => {
+                    //     if (err) throw err;
+                    //     console.log(`${room}_mytranscript.txt was deleted`);
+                    // });
                 } catch (e) {
-                    console.log('Error deleting file mytranscript.txt');
+                    console.log(`Error deleting file ${room}_mytranscript.txt`);
                 }
             }
         }
     });
 }
-
-
-// class Transcript {
-//     constructor() {
-//         // /** @type {Map<number, {words: string, is_final: boolean}>} */
-//         this.chunks = new Map();
-//     }
-
-//     addServerAnswer(jsonFromServer) {
-//         const words = JSON.parse(jsonFromServer).channel.alternatives[0]
-//             .transcript;
-//         if (words !== "") {
-//             this.chunks.set(jsonFromServer.start, {
-//                 words,
-//                 // if "is_final" is true, we will never have future updates for this
-//                 // audio chunk.
-//                 is_final: jsonFromServer.is_final,
-//             });
-//         }
-//     }
-
-//     toHtml() {
-//         const divNode = document.createElement("div");
-//         divNode.className = "transcript-text";
-//         [...this.chunks.entries()]
-//             .sort((entryA, entryB) => entryA[0] - entryB[0])
-//             .forEach((entry) => {
-//                 const spanNode = document.createElement("span");
-//                 spanNode.innerText = entry[1].words;
-//                 spanNode.className = entry[1].is_final ? "final" : "interim";
-//                 divNode.appendChild(spanNode);
-//                 divNode.appendChild(document.createTextNode(" "));
-//             });
-
-//         return divNode;
-//     }
-// }

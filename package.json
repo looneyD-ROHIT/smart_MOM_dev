@@ -1,11 +1,13 @@
 {
   "name": "video-chat",
   "version": "1.0.1",
+  "type":"module",
   "description": "Video Chat application.",
   "main": "server.js",
   "author": "Deepgram",
   "scripts": {
     "start": "node server.js",
+    "dev": "nodemon server.js",
     "debug": "node --nolazy --inspect --debug-brk=5858 ./server.js"
   },
   "dependencies": {
@@ -15,12 +17,14 @@
     "express": "^4.17.1",
     "nodemailer": "^6.8.0",
     "socket.io": "^4.5.3",
-    "ws": "^1.1.0"
+    "ws": "^1.1.0",
+    "xlsx": "^0.18.5"
   },
   "license": "ISC",
   "devDependencies": {
     "@types/node": "^12.20.0",
     "@types/webrtc": "0.0.21",
-    "eslint": "^7.23.0"
+    "eslint": "^7.23.0",
+    "nodemon": "^2.0.22"
   }
 }

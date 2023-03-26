@@ -1,5 +1,6 @@
 let user_name = "";
 let user_email = "";
+let _audioEnabled = true;
 (async function () {
     async function main() {
         let localStream;
@@ -50,7 +51,8 @@ let user_email = "";
 
         /** We forward our audio stream to the server. */
         recorder.ondataavailable = (e) => {
-            socket.emit("microphone-stream", e.buffer);
+            if (_audioEnabled)
+                socket.emit("microphone-stream", e.buffer);
         };
     }
 
@@ -119,15 +121,9 @@ let user_email = "";
     }
 
     function initRoom(socket) {
-        /**
-         * The room ID is specified in the path. We expect something like `/{roomId}`.
-         *
-         * In case there is no room ID in the URL, we generate a random one
-         * and update the URL in the navigation bar (without adding
-         * a new entry in the history).
-         */
-        // const user_name = document.getElementById("username").value;
         const roomRequested = location.pathname.substring(1);
+        // console.log(location.pathname)
+        // console.log(location.pathname.substring(1))
         const room = roomRequested == "" ? 'smartmom' : roomRequested;
         const user_data = {
             user_name,
@@ -136,35 +132,6 @@ let user_email = "";
         socket.emit("join", room, user_data);
     }
 
-    /**
-     * @returns {string} */
-    // function randomId() {
-    //     var characters =
-    //         "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
-    //     var result = "";
-    //     for (var i = 0; i < 10; i++) {
-    //         result += characters.charAt(
-    //             Math.floor(Math.random() * characters.length)
-    //         );
-    //     }
-    //     return result;
-    // }
-
-    /**
-     * Create a RTC peer connection and:
-     * - add this connection to `allPeerConnections`
-     * - add the local stream as outgoing tracks to the peer connection
-     *   so the local stream can be sent to the peer
-     * - conversely, bind incoming tracks to remoteVideoNode.srcObject,
-     *   so we can see the peer's stream
-     * - forward ICE candidates to the peer through the socket. This is
-     *   required by the RTC protocol to make both clients agree on what
-     *   video/audio format and quality to use.
-     *
-     * @param {string} peerSocketId
-     * @param {SocketIOClient.Socket} socket
-     * @param {Map<string, RTCPeerConnection>} allPeerConnections
-     * @returns {RTCPeerConnection} */
     function createAndSetupPeerConnection(peerSocketId, socket, allPeerConnections) {
         const peerConnection = new RTCPeerConnection({
             iceServers: [
@@ -195,7 +162,7 @@ let user_email = "";
     // HTML form input implementation:
     const button = document.getElementById("enter-room");
     const login_div = document.getElementById("container-main");
-    button.addEventListener("click", () => {
+    button.addEventListener("click", async () => {
         if (document.getElementById("username").value === "") {
             alert("Please enter your name");
         } else {
@@ -212,11 +179,31 @@ let user_email = "";
                 <div class="outer-2"></div>
                 <div class="icon-microphone"><img id="micimage" src="mic.png" alt="R" /></div>
             </div>
+            <div id="end-session" style="margin-top: 3rem;"><button class="button-69">End Session</button></div>
             `;
-            document.getElementById('micimage').addEventListener('click', (e) => {
+            document.getElementById('end-session').addEventListener('click', (e) => {
                 e.preventDefault();
                 location.reload()
             })
+            const _localStream = await navigator.mediaDevices.getUserMedia({
+                audio: true,
+                video: false,
+            });
+            const micimage = document.getElementById("micimage");
+            micimage.addEventListener("click", (e) => {
+                // console.log("mic clicked");
+                e.preventDefault();
+                if (micimage.src.match("mic.png")) {
+                    micimage.src = "mic-off.png";
+                    _audioEnabled = false;
+                    // console.log(_localStream.getAudioTracks()[0].enabled);
+                    // _localStream.getAudioTracks()[0].enabled = false;
+                } else {
+                    micimage.src = "mic.png";
+                    _audioEnabled = true;
+                    // _localStream.getAudioTracks()[0].enabled = true;
+                }
+            });
         }
     });
     // main();
